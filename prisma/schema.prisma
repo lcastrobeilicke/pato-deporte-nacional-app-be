@@ -1,0 +1,146 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Tournament {
+  id        Int      @id @default(autoincrement())
+  name      String
+  startDate DateTime @map("start_date")
+  endDate   DateTime @map("end_date")
+  status    String   @default("draft")
+
+  tournamentTeams      TournamentTeam[]
+  fixtureRounds        FixtureRound[]
+  matches              Match[]
+  teamTournamentStatus TeamTournamentStatus[]
+
+  @@map("tournaments")
+}
+
+model Player {
+  id       Int    @id @default(autoincrement())
+  name     String
+  email    String @unique
+  handicap Int    @default(0)
+
+  tournamentTeamMembers TournamentTeamMember[]
+
+  @@map("players")
+}
+
+model Team {
+  id   Int    @id @default(autoincrement())
+  name String
+
+  tournamentTeams TournamentTeam[]
+
+  @@map("teams")
+}
+
+model TournamentTeam {
+  id           Int    @id @default(autoincrement())
+  tournamentId Int    @map("tournament_id")
+  teamId       Int?   @map("team_id")
+  name         String
+
+  tournament   Tournament             @relation(fields: [tournamentId], references: [id])
+  team         Team?                  @relation(fields: [teamId], references: [id])
+  members      TournamentTeamMember[]
+  status       TeamTournamentStatus?
+
+  slotsAsTeamA FixtureSlot[] @relation("SlotTeamA")
+  slotsAsTeamB FixtureSlot[] @relation("SlotTeamB")
+  wonMatches   Match[]
+
+  @@map("tournament_teams")
+}
+
+model TournamentTeamMember {
+  id               Int    @id @default(autoincrement())
+  tournamentTeamId Int    @map("tournament_team_id")
+  playerId         Int    @map("player_id")
+  role             String @default("player")
+
+  tournamentTeam TournamentTeam @relation(fields: [tournamentTeamId], references: [id])
+  player         Player         @relation(fields: [playerId], references: [id])
+
+  @@unique([tournamentTeamId, playerId])
+  @@map("tournament_team_members")
+}
+
+model FixtureRound {
+  id           Int    @id @default(autoincrement())
+  tournamentId Int    @map("tournament_id")
+  roundNumber  Int    @map("round_number")
+  day          Int
+  cup          String
+  phase        String
+
+  tournament Tournament    @relation(fields: [tournamentId], references: [id])
+  slots      FixtureSlot[]
+
+  @@map("fixture_rounds")
+}
+
+model FixtureSlot {
+  id             Int    @id @default(autoincrement())
+  fixtureRoundId Int    @map("fixture_round_id")
+  slotNumber     Int    @map("slot_number")
+
+  teamASourceType   String  @map("team_a_source_type")
+  teamASourceSlotId Int?    @map("team_a_source_slot_id")
+  teamAAssignedId   Int?    @map("team_a_assigned_id")
+
+  teamBSourceType   String  @map("team_b_source_type")
+  teamBSourceSlotId Int?    @map("team_b_source_slot_id")
+  teamBAssignedId   Int?    @map("team_b_assigned_id")
+
+  fixtureRound FixtureRound @relation(fields: [fixtureRoundId], references: [id])
+
+  teamAAssigned TournamentTeam? @relation("SlotTeamA", fields: [teamAAssignedId], references: [id])
+  teamBAssigned TournamentTeam? @relation("SlotTeamB", fields: [teamBAssignedId], references: [id])
+
+  teamASourceSlot FixtureSlot?  @relation("SlotSourceA", fields: [teamASourceSlotId], references: [id])
+  teamBSourceSlot FixtureSlot?  @relation("SlotSourceB", fields: [teamBSourceSlotId], references: [id])
+
+  referencedByA FixtureSlot[] @relation("SlotSourceA")
+  referencedByB FixtureSlot[] @relation("SlotSourceB")
+
+  match Match?
+
+  @@map("fixture_slots")
+}
+
+model Match {
+  id            Int       @id @default(autoincrement())
+  tournamentId  Int       @map("tournament_id")
+  fixtureSlotId Int       @unique @map("fixture_slot_id")
+  teamAScore    Int?      @map("team_a_score")
+  teamBScore    Int?      @map("team_b_score")
+  winnerTeamId  Int?      @map("winner_team_id")
+  status        String    @default("scheduled")
+  playedAt      DateTime? @map("played_at")
+
+  tournament  Tournament      @relation(fields: [tournamentId], references: [id])
+  fixtureSlot FixtureSlot     @relation(fields: [fixtureSlotId], references: [id])
+  winnerTeam  TournamentTeam? @relation(fields: [winnerTeamId], references: [id])
+
+  @@map("matches")
+}
+
+model TeamTournamentStatus {
+  id               Int    @id @default(autoincrement())
+  tournamentId     Int    @map("tournament_id")
+  tournamentTeamId Int    @unique @map("tournament_team_id")
+  status           String @default("active_gold")
+
+  tournament     Tournament     @relation(fields: [tournamentId], references: [id])
+  tournamentTeam TournamentTeam @relation(fields: [tournamentTeamId], references: [id])
+
+  @@unique([tournamentId, tournamentTeamId])
+  @@map("team_tournament_status")
+}
